@@ -1,0 +1,5 @@
+{
+  "name": "AI Business Intelligence Assistant",
+  "description": "An AI-powered assistant that provides business intelligence, content enhancement, and code generation based on user-provided text. Select a task, input your text, and receive actionable AI-driven support.",
+  "requestFramePermissions": []
+}
