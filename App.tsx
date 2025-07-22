@@ -1,96 +1,70 @@
-import React, { useState, useCallback } from 'react';
-import { TaskType } from './types';
-import { TASKS } from './constants';
-import Header from './components/Header';
-import TaskSelector from './components/TaskSelector';
-import TextInput from './components/TextInput';
-import OutputDisplay from './components/OutputDisplay';
-import { generateInsights } from './services/geminiService';
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
-const App: React.FC = () => {
-  const [selectedTask, setSelectedTask] = useState<TaskType>(TaskType.KEY_INSIGHTS);
-  const [inputText, setInputText] = useState<string>('');
-  const [file, setFile] = useState<File | null>(null);
-  const [output, setOutput] = useState<string | string[]>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+import HomeScreen from './src/screens/HomeScreen';
+import HistoryScreen from './src/screens/HistoryScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 
-  const handleSelectTask = useCallback((task: TaskType) => {
-    setSelectedTask(task);
-    setInputText('');
-    setFile(null);
-    setOutput('');
-    setError(null);
-  }, []);
+const Tab = createBottomTabNavigator();
 
-  const handleGenerate = useCallback(async () => {
-    const task = TASKS.find(t => t.id === selectedTask);
-    if (!task) return;
-
-    // Validation
-    if ((task.accepts === 'image' || task.accepts === 'video') && !file) {
-      setError('Please upload a file for this task.');
-      return;
-    }
-    if (task.accepts === 'text' && !inputText.trim()) {
-      setError('Input text cannot be empty.');
-      return;
-    }
-
-    setIsLoading(true);
-    setOutput('');
-    setError(null);
-
-    try {
-      const result = await generateInsights(selectedTask, inputText, file);
-      setOutput(result);
-    } catch (e: unknown) {
-      if (e instanceof Error) {
-        setError(`An error occurred: ${e.message}`);
-      } else {
-        setError('An unknown error occurred. Please try again.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [inputText, selectedTask, file]);
-
+export default function App() {
   return (
-    <div className="min-h-screen bg-base-100 text-base-content font-sans">
-      <Header />
-      <main className="container mx-auto p-4 md:p-8">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Left Column: Controls */}
-          <div className="lg:w-2/5 flex flex-col gap-6">
-            <TaskSelector
-              selectedTask={selectedTask}
-              onSelectTask={handleSelectTask}
-            />
-            <TextInput
-              textValue={inputText}
-              onTextChange={setInputText}
-              file={file}
-              onFileChange={setFile}
-              onClearFile={() => setFile(null)}
-              onGenerate={handleGenerate}
-              isLoading={isLoading}
-              selectedTask={selectedTask}
-            />
-          </div>
+    <SafeAreaProvider>
+      <NavigationContainer>
+        <StatusBar style="light" backgroundColor="#1f2937" />
+        <Tab.Navigator
+          screenOptions={({ route }) => ({
+            tabBarIcon: ({ focused, color, size }) => {
+              let iconName: keyof typeof Ionicons.glyphMap;
 
-          {/* Right Column: Output */}
-          <div className="lg:w-3/5">
-            <OutputDisplay
-              isLoading={isLoading}
-              output={output}
-              error={error}
-              task={TASKS.find(t => t.id === selectedTask)}
-            />
-          </div>
-        </div>
-      </main>
-    </div>
+              if (route.name === 'Home') {
+                iconName = focused ? 'home' : 'home-outline';
+              } else if (route.name === 'History') {
+                iconName = focused ? 'time' : 'time-outline';
+              } else if (route.name === 'Settings') {
+                iconName = focused ? 'settings' : 'settings-outline';
+              } else {
+                iconName = 'help-outline';
+              }
+
+              return <Ionicons name={iconName} size={size} color={color} />;
+            },
+            tabBarActiveTintColor: '#4f46e5',
+            tabBarInactiveTintColor: '#9ca3af',
+            tabBarStyle: {
+              backgroundColor: '#374151',
+              borderTopColor: '#4b5563',
+            },
+            headerStyle: {
+              backgroundColor: '#1f2937',
+            },
+            headerTintColor: '#f9fafb',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+          })}
+        >
+          <Tab.Screen 
+            name="Home" 
+            component={HomeScreen}
+            options={{ title: 'AI Assistant' }}
+          />
+          <Tab.Screen 
+            name="History" 
+            component={HistoryScreen}
+            options={{ title: 'History' }}
+          />
+          <Tab.Screen 
+            name="Settings" 
+            component={SettingsScreen}
+            options={{ title: 'Settings' }}
+          />
+        </Tab.Navigator>
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
-};
-
-export default App;
+}

@@ -1,5 +1,3 @@
-import type { ReactNode } from 'react';
-
 export enum TaskType {
   KEY_INSIGHTS = 'Key Insights',
   SWOT = 'SWOT Analysis',
@@ -18,7 +16,7 @@ export interface Task {
   id: TaskType;
   title: string;
   description: string;
-  icon: ReactNode;
+  icon: string;
   placeholder: string;
   accepts: 'text' | 'image' | 'video';
 }

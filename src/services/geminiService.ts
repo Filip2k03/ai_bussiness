@@ -1,10 +1,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { TaskType } from "../types";
 import { TASKS } from "../constants";
+import Constants from 'expo-constants';
 
-const apiKey = process.env.API_KEY;
+const apiKey = Constants.expoConfig?.extra?.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 if (!apiKey) {
-  console.warn("API_KEY environment variable not found. App will not be able to connect to Gemini API.");
+  console.warn("GEMINI_API_KEY environment variable not found. App will not be able to connect to Gemini API.");
 }
 
 const ai = new GoogleGenAI({ apiKey: apiKey || '' });
@@ -34,60 +35,29 @@ const getSystemInstruction = (task: TaskType): string => {
   }
 };
 
-const fileToGenerativePart = async (file: File) => {
-  const base64EncodedDataPromise = new Promise<string>((resolve) => {
+const fileToGenerativePart = async (file: any) => {
+  // For React Native, we need to handle file differently
+  const response = await fetch(file.uri);
+  const blob = await response.blob();
+  
+  return new Promise<any>((resolve) => {
     const reader = new FileReader();
-    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-    reader.readAsDataURL(file);
-  });
-  return {
-    inlineData: {
-      data: await base64EncodedDataPromise,
-      mimeType: file.type,
-    },
-  };
-};
-
-const videoFrameToGenerativePart = (file: File) => {
-  return new Promise<any>((resolve, reject) => {
-    const video = document.createElement('video');
-    video.preload = 'metadata';
-    video.src = URL.createObjectURL(file);
-
-    video.onloadedmetadata = () => {
-      video.currentTime = video.duration / 2; // Grab frame from the middle
-    };
-
-    video.onseeked = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return reject('Could not get canvas context');
-      
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg');
-      const base64 = dataUrl.split(',')[1];
-      
+    reader.onloadend = () => {
+      const base64 = (reader.result as string).split(',')[1];
       resolve({
         inlineData: {
           data: base64,
-          mimeType: 'image/jpeg'
-        }
+          mimeType: file.mimeType || 'image/jpeg',
+        },
       });
-      URL.revokeObjectURL(video.src);
     };
-    
-    video.onerror = (e) => {
-      reject(e);
-      URL.revokeObjectURL(video.src);
-    };
+    reader.readAsDataURL(blob);
   });
 };
 
-export const generateInsights = async (taskType: TaskType, text: string, file: File | null): Promise<string | string[]> => {
+export const generateInsights = async (taskType: TaskType, text: string, file: any): Promise<string | string[]> => {
   if (!apiKey) {
-    throw new Error("API key is not configured. Please set the API_KEY environment variable.");
+    throw new Error("API key is not configured. Please set the EXPO_PUBLIC_GEMINI_API_KEY environment variable.");
   }
 
   const taskInfo = TASKS.find(t => t.id === taskType);
@@ -141,7 +111,6 @@ export const generateInsights = async (taskType: TaskType, text: string, file: F
         if (res.generatedImages && res.generatedImages.length > 0) {
             return `data:image/jpeg;base64,${res.generatedImages[0].image.imageBytes}`;
         }
-        // Fallback for a failed image generation in the sequence
         throw new Error("An image could not be generated for one of the scenes.");
     });
 
@@ -176,7 +145,6 @@ export const generateInsights = async (taskType: TaskType, text: string, file: F
     }
   }
 
-
   // --- Handle all other content generation tasks ---
   const systemInstruction = getSystemInstruction(taskType);
   const model = "gemini-2.5-flash";
@@ -184,12 +152,7 @@ export const generateInsights = async (taskType: TaskType, text: string, file: F
 
   if (file && (taskInfo.accepts === 'image' || taskInfo.accepts === 'video')) {
     const textPart = { text: text || "Analyze what you see in the media and describe it." };
-    let filePart;
-    if (taskInfo.accepts === 'image') {
-      filePart = await fileToGenerativePart(file);
-    } else { // video
-      filePart = await videoFrameToGenerativePart(file);
-    }
+    const filePart = await fileToGenerativePart(file);
     contents = { parts: [filePart, textPart] };
   } else {
     contents = text;
