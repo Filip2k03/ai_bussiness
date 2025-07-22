@@ -29,6 +29,7 @@
     "plugins": [
       "expo-document-picker",
       "expo-image-picker"
-    ]
+    ],
+    "platforms": ["ios", "android"]
   }
 }
